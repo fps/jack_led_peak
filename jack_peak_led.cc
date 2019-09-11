@@ -59,14 +59,6 @@ process (jack_nframes_t nframes, void *arg)
 
     time_since_red_led_triggered += (float)nframes / (float)jack_get_sample_rate(jack_client);
 
-#if 0
-    jack_default_audio_sample_t *in, *out;
-    
-    in = jack_port_get_buffer (input_port, nframes);
-    out = jack_port_get_buffer (output_port, nframes);
-    memcpy (out, in,
-        sizeof (jack_default_audio_sample_t) * nframes);
-#endif
     return 0;      
 }
 
