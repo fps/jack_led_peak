@@ -15,6 +15,10 @@ std::vector <jack_port_t*> jack_ports;
 gpiod::line green_led_line;
 gpiod::line red_led_line;
 
+float green_led_threshold_gain;
+float red_led_threshold_gain;
+float red_led_hysteresis_secs;
+
 int
 process (jack_nframes_t nframes, void *arg)
 {
@@ -29,7 +33,7 @@ process (jack_nframes_t nframes, void *arg)
         if (tmp > current_max) current_max = tmp;
     }
 
-    if (current_max > 0.8)
+    if (current_max > red_led_threshold_gain)
     {
         red_led_line.set_value(1);
     }
@@ -38,7 +42,7 @@ process (jack_nframes_t nframes, void *arg)
         red_led_line.set_value(0);
     }
 
-    if (current_max > 0.5)
+    if (current_max > green_led_threshold_gain)
     {
         green_led_line.set_value(1);
     }
@@ -77,8 +81,9 @@ int main(int ac, char *av[])
         ("jack-number-of-input-ports,n", po::value<int>(&jack_number_of_input_ports)->default_value(2), "The number of input ports to watch")
         ("gpiod-green-led-offset,g", po::value<int>(&gpiod_green_led_offset)->default_value(23), "The libgpiod line offset to use for the green indicator LED")
         ("gpiod-red-led-offset,r", po::value<int>(&gpiod_red_led_offset)->default_value(18), "The libgpiod line offset to use for the red indicator LED")
-        ("green-led-threshold-dbfs,t", po::value<float>(&green_led_threshold_dbfs)->default_value(-6.0), "The threshold for the red LED")
-        ("red-led-threshold-dbfs,u", po::value<float>(&red_led_threshold_dbfs)->default_value(-18.0), "The threshold for the red LED")
+        ("green-led-threshold-dbfs,t", po::value<float>(&green_led_threshold_dbfs)->default_value(-18.0), "The threshold for the red LED")
+        ("red-led-threshold-dbfs,u", po::value<float>(&red_led_threshold_dbfs)->default_value(-6.0), "The threshold for the red LED")
+        ("red-led-hysteresis-secs,y", po::value<float(&red_led_hysteresis_secs)->default_value(0.5), "Approximate time for the red LED to go off after being triggered")
     ;
 
     po::variables_map vm;
@@ -90,13 +95,18 @@ int main(int ac, char *av[])
         return 1;
     }
 
+    green_led_threshold_gain = powf(10.0, green_led_threshold_dbfs/10.0);
+    red_led_threshold_gain = powf(10.0, red_led_threshold_dbfs/10.0);
+
     gpiod::chip chip("/dev/gpiochip0", gpiod::chip::OPEN_BY_PATH);
 
     green_led_line = chip.get_line(gpiod_green_led_offset);
     red_led_line = chip.get_line(gpiod_red_led_offset);
+
     gpiod::line_request line_request;
     line_request.consumer = "jpa";
     line_request.request_type = gpiod::line_request::DIRECTION_OUTPUT;
+
     green_led_line.request(line_request);
     red_led_line.request(line_request);
 
