@@ -66,7 +66,7 @@ process (jack_nframes_t nframes, void *arg)
 
     time_since_red_led_triggered += (float)nframes / samplerate;
 
-    cycle += 20.0 * (float)nframes / samplerate;
+    cycle += 123457.678 * (float)nframes / samplerate;
     
     cycle = fmodf(cycle, 1.0);
 
@@ -88,7 +88,7 @@ int main(int ac, char *av[])
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help,h", "produce help message")
-        ("jack-client-name,a", po::value<std::string>(&jack_client_name)->default_value("jack_peak_alarm"), "The jack client name to use")
+        ("jack-client-name,a", po::value<std::string>(&jack_client_name)->default_value("jack_peak_led"), "The jack client name to use")
         ("jack-server-name,e", po::value<std::string>(&jack_server_name)->default_value("default"), "The jack server name to use")
         ("jack-number-of-input-ports,n", po::value<int>(&jack_number_of_input_ports)->default_value(2), "The number of input ports to watch")
         ("gpiod-chip-device-path,d", po::value<std::string>(&gpiod_chip_device_path)->default_value("/dev/gpiochip0"), "The path of the gpiochip device to use")
