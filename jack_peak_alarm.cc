@@ -18,6 +18,7 @@ gpiod::line red_led_line;
 float green_led_threshold_gain;
 float red_led_threshold_gain;
 float red_led_hysteresis_secs;
+float time_since_red_led_triggered = 0;
 
 int
 process (jack_nframes_t nframes, void *arg)
@@ -35,6 +36,11 @@ process (jack_nframes_t nframes, void *arg)
 
     if (current_max > red_led_threshold_gain)
     {
+        time_since_red_led_triggered = 0;
+    }
+
+    if (time_since_red_led_triggered < red_led_hysteresis_secs)
+    {
         red_led_line.set_value(1);
     }
     else
@@ -50,6 +56,8 @@ process (jack_nframes_t nframes, void *arg)
     {
         green_led_line.set_value(0);
     }
+
+    time_since_red_led_triggered += (float)nframes / (float)jack_get_sample_rate(jack_client);
 
 #if 0
     jack_default_audio_sample_t *in, *out;
@@ -83,7 +91,7 @@ int main(int ac, char *av[])
         ("gpiod-red-led-offset,r", po::value<int>(&gpiod_red_led_offset)->default_value(18), "The libgpiod line offset to use for the red indicator LED")
         ("green-led-threshold-dbfs,t", po::value<float>(&green_led_threshold_dbfs)->default_value(-18.0), "The threshold for the red LED")
         ("red-led-threshold-dbfs,u", po::value<float>(&red_led_threshold_dbfs)->default_value(-6.0), "The threshold for the red LED")
-        ("red-led-hysteresis-secs,y", po::value<float(&red_led_hysteresis_secs)->default_value(0.5), "Approximate time for the red LED to go off after being triggered")
+        ("red-led-hysteresis-secs,y", po::value<float>(&red_led_hysteresis_secs)->default_value(0.5), "Approximate time for the red LED to go off after being triggered")
     ;
 
     po::variables_map vm;
