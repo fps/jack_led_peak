@@ -1,5 +1,7 @@
 #include <iostream>
+#include <sstream>
 #include <vector>
+#include <algorithm>
 #include <gpiod.hpp>
 #include <unistd.h>
 #include <boost/program_options.hpp>
@@ -9,6 +11,52 @@ namespace po = boost::program_options;
 
 jack_client_t *jack_client;
 std::vector <jack_port_t*> jack_ports;
+
+gpiod::line green_led_line;
+gpiod::line red_led_line;
+
+int
+process (jack_nframes_t nframes, void *arg)
+{
+    float current_max = 0;
+    for (int index = 0; index < jack_ports.size(); ++index)
+    {
+        jack_default_audio_sample_t *buffer;
+        buffer = (jack_default_audio_sample_t*)jack_port_get_buffer(jack_ports[index], nframes);
+        const float new_max = *std::max_element(buffer, buffer+nframes);
+        const float new_min = *std::min_element(buffer, buffer+nframes);
+        const float tmp = std::max(fabs(new_min), new_max);
+        if (tmp > current_max) current_max = tmp;
+    }
+
+    if (current_max > 0.8)
+    {
+        red_led_line.set_value(1);
+    }
+    else
+    {
+        red_led_line.set_value(0);
+    }
+
+    if (current_max > 0.5)
+    {
+        green_led_line.set_value(1);
+    }
+    else
+    {
+        green_led_line.set_value(0);
+    }
+
+#if 0
+    jack_default_audio_sample_t *in, *out;
+    
+    in = jack_port_get_buffer (input_port, nframes);
+    out = jack_port_get_buffer (output_port, nframes);
+    memcpy (out, in,
+        sizeof (jack_default_audio_sample_t) * nframes);
+#endif
+    return 0;      
+}
 
 int main(int ac, char *av[])
 {
@@ -29,8 +77,8 @@ int main(int ac, char *av[])
         ("jack-number-of-input-ports,n", po::value<int>(&jack_number_of_input_ports)->default_value(2), "The number of input ports to watch")
         ("gpiod-green-led-offset,g", po::value<int>(&gpiod_green_led_offset)->default_value(23), "The libgpiod line offset to use for the green indicator LED")
         ("gpiod-red-led-offset,r", po::value<int>(&gpiod_red_led_offset)->default_value(18), "The libgpiod line offset to use for the red indicator LED")
-        ("green-led-threshold-dbfs", po::value<float>(&green_led_threshold_dbfs)->default_value(-6.0), "The threshold for the red LED")
-        ("red-led-threshold-dbfs", po::value<float>(&red_led_threshold_dbfs)->default_value(-18.0), "The threshold for the red LED")
+        ("green-led-threshold-dbfs,t", po::value<float>(&green_led_threshold_dbfs)->default_value(-6.0), "The threshold for the red LED")
+        ("red-led-threshold-dbfs,u", po::value<float>(&red_led_threshold_dbfs)->default_value(-18.0), "The threshold for the red LED")
     ;
 
     po::variables_map vm;
@@ -44,14 +92,43 @@ int main(int ac, char *av[])
 
     gpiod::chip chip("/dev/gpiochip0", gpiod::chip::OPEN_BY_PATH);
 
-    gpiod::line line = chip.get_line(18);
+    green_led_line = chip.get_line(gpiod_green_led_offset);
+    red_led_line = chip.get_line(gpiod_red_led_offset);
     gpiod::line_request line_request;
     line_request.consumer = "jpa";
     line_request.request_type = gpiod::line_request::DIRECTION_OUTPUT;
-    line.request(line_request);
-    line.set_value(1);
-    sleep(1);
-    
+    green_led_line.request(line_request);
+    red_led_line.request(line_request);
+
+    jack_status_t jack_status;
+    jack_client = jack_client_open(jack_client_name.c_str(), JackNullOption, &jack_status, jack_server_name.c_str());
+
+    if (NULL == jack_client) {
+        std::cout << "Failed to create jack_client. Exiting." << std::endl;
+        return 1;
+    }
+
+    jack_set_process_callback(jack_client, process, 0);
+
+    for (int index = 0; index < jack_number_of_input_ports; ++index)
+    {
+        std::stringstream name_stream;
+        name_stream << "input";
+        name_stream << index;
+        jack_ports.push_back(jack_port_register(jack_client, name_stream.str().c_str(), JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0));
+        if (jack_ports[index] == NULL) {
+            std::cout << "Failed to register port with index " << index << std::endl;
+            return 1;
+        }
+    }
+
+    if (jack_activate(jack_client))
+    {
+        std::cout << "Failed to activate jack_client" << std::endl;
+        return 1;
+    }
+
+    sleep(-1);
 
     return 0;
 }
