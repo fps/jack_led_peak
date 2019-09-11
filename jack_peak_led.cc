@@ -2,7 +2,7 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
-#include <gpiod.hpp>
+#include <gpiod.h>
 #include <unistd.h>
 #include <boost/program_options.hpp>
 #include <jack/jack.h>
@@ -12,8 +12,8 @@ namespace po = boost::program_options;
 jack_client_t *jack_client;
 std::vector <jack_port_t*> jack_ports;
 
-gpiod::line green_led_line;
-gpiod::line red_led_line;
+gpiod_line *green_led_line;
+gpiod_line *red_led_line;
 
 float green_led_threshold_gain;
 float red_led_threshold_gain;
@@ -41,20 +41,20 @@ process (jack_nframes_t nframes, void *arg)
 
     if (time_since_red_led_triggered < red_led_hysteresis_secs)
     {
-        red_led_line.set_value(1);
+        gpiod_line_set_value(red_led_line, 1);
     }
     else
     {
-        red_led_line.set_value(0);
+        gpiod_line_set_value(red_led_line, 0);
     }
 
     if (current_max > green_led_threshold_gain)
     {
-        green_led_line.set_value(1);
+        gpiod_line_set_value(green_led_line, 1);
     }
     else
     {
-        green_led_line.set_value(0);
+        gpiod_line_set_value(green_led_line, 0);
     }
 
     time_since_red_led_triggered += (float)nframes / (float)jack_get_sample_rate(jack_client);
@@ -100,17 +100,23 @@ int main(int ac, char *av[])
     green_led_threshold_gain = powf(10.0, green_led_threshold_dbfs/10.0);
     red_led_threshold_gain = powf(10.0, red_led_threshold_dbfs/10.0);
 
-    gpiod::chip chip("/dev/gpiochip0", gpiod::chip::OPEN_BY_PATH);
+    gpiod_chip *chip;
+    chip = gpiod_chip_open("/dev/gpiochip0");
+    if (NULL == chip)
+    {
+        std::cout << "Failed to open chip" << std::endl;
+        return 1;
+    }
 
-    green_led_line = chip.get_line(gpiod_green_led_offset);
-    red_led_line = chip.get_line(gpiod_red_led_offset);
+    green_led_line = gpiod_chip_get_line(chip, gpiod_green_led_offset);
+    red_led_line = gpiod_chip_get_line(chip, gpiod_red_led_offset);
 
-    gpiod::line_request line_request;
+    gpiod_line_request_config line_request;
     line_request.consumer = "jpa";
-    line_request.request_type = gpiod::line_request::DIRECTION_OUTPUT;
+    line_request.request_type = GPIOD_LINE_REQUEST_DIRECTION_OUTPUT;
 
-    green_led_line.request(line_request);
-    red_led_line.request(line_request);
+    gpiod_line_request(green_led_line, &line_request, 0);
+    gpiod_line_request(red_led_line, &line_request, 0);
 
     jack_status_t jack_status;
     jack_client = jack_client_open(jack_client_name.c_str(), JackNullOption, &jack_status, jack_server_name.c_str());
