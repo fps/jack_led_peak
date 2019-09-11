@@ -31,8 +31,12 @@ Allowed options:
                                         oversampling, thus the value will be 
                                         underestimated)
   -y [ --red-led-hysteresis-secs ] arg (=0.5)
-                                        Approximate time for the red LED to go 
-                                        off after being triggered
+                                        Approximate time for the red LED to 
+                                        stay on after reaching full saturarion
+  -z [ --falloff-time-constant-secs ] arg (=0.100000001)
+                                        The time for the exponential falloff to
+                                        drop to half the peak value
 </pre>
+
 
 
