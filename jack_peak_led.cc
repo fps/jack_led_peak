@@ -2,6 +2,7 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <cstdlib>
 #include <gpiod.h>
 #include <unistd.h>
 #include <boost/program_options.hpp>
@@ -20,9 +21,13 @@ float red_led_threshold_gain;
 float red_led_hysteresis_secs;
 float time_since_red_led_triggered = 0;
 
+float cycle = 0.0;
+
 int
 process (jack_nframes_t nframes, void *arg)
 {
+    const float draw = (float)rand()/(float)RAND_MAX;
+
     float current_max = 0;
     for (int index = 0; index < jack_ports.size(); ++index)
     {
@@ -39,7 +44,7 @@ process (jack_nframes_t nframes, void *arg)
         time_since_red_led_triggered = 0;
     }
 
-    if (time_since_red_led_triggered < red_led_hysteresis_secs)
+    if (time_since_red_led_triggered < red_led_hysteresis_secs || cycle < powf((current_max - green_led_threshold_gain) / red_led_threshold_gain, 1.0))
     {
         gpiod_line_set_value(red_led_line, 1);
     }
@@ -48,7 +53,7 @@ process (jack_nframes_t nframes, void *arg)
         gpiod_line_set_value(red_led_line, 0);
     }
 
-    if (current_max > green_led_threshold_gain)
+    if (current_max > green_led_threshold_gain || cycle < powf((current_max / green_led_threshold_gain), 1.0))
     {
         gpiod_line_set_value(green_led_line, 1);
     }
@@ -57,7 +62,13 @@ process (jack_nframes_t nframes, void *arg)
         gpiod_line_set_value(green_led_line, 0);
     }
 
-    time_since_red_led_triggered += (float)nframes / (float)jack_get_sample_rate(jack_client);
+    const float samplerate = (float)jack_get_sample_rate(jack_client);
+
+    time_since_red_led_triggered += (float)nframes / samplerate;
+
+    cycle += 20.0 * (float)nframes / samplerate;
+    
+    cycle = fmodf(cycle, 1.0);
 
     return 0;      
 }
@@ -101,7 +112,7 @@ int main(int ac, char *av[])
     red_led_threshold_gain = powf(10.0, red_led_threshold_dbfs/10.0);
 
     gpiod_chip *chip;
-    chip = gpiod_chip_open("/dev/gpiochip0");
+    chip = gpiod_chip_open(gpiod_chip_device_path.c_str());
     if (NULL == chip)
     {
         std::cout << "Failed to open chip" << std::endl;
