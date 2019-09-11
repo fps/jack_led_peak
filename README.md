@@ -1,7 +1,9 @@
 # jack_led_peak
 
-<pre>
 A small jack utility (primary for the raspberry pi) to drive LEDs based on the peak values of the inputs
+
+<pre>
+jack_peak_led -h
 Allowed options:
   -h [ --help ]                         produce help message
   -a [ --jack-client-name ] arg (=jack_peak_alarm)
