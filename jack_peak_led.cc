@@ -19,14 +19,20 @@ gpiod_line *red_led_line;
 float green_led_threshold_gain;
 float red_led_threshold_gain;
 float red_led_hysteresis_secs;
+float falloff_time_constant_secs;
+
 float time_since_red_led_triggered = 0;
 
 float cycle = 0.0;
 
+float old_max = 0.0;
+
 int
 process (jack_nframes_t nframes, void *arg)
 {
-    const float draw = (float)rand()/(float)RAND_MAX;
+    const float samplerate = (float)jack_get_sample_rate(jack_client);
+
+    const float time_passed = (float)nframes / samplerate;
 
     float current_max = 0;
     for (int index = 0; index < jack_ports.size(); ++index)
@@ -39,12 +45,16 @@ process (jack_nframes_t nframes, void *arg)
         if (tmp > current_max) current_max = tmp;
     }
 
-    if (current_max > red_led_threshold_gain)
+    if (current_max > old_max) old_max = current_max;
+
+    old_max = old_max * powf(0.5, time_passed / falloff_time_constant_secs);
+
+    if (old_max > red_led_threshold_gain)
     {
         time_since_red_led_triggered = 0;
     }
 
-    if (time_since_red_led_triggered < red_led_hysteresis_secs || cycle < powf((current_max - green_led_threshold_gain) / red_led_threshold_gain, 1.0))
+    if (time_since_red_led_triggered < red_led_hysteresis_secs || cycle < powf((old_max - green_led_threshold_gain) / red_led_threshold_gain, 1.0))
     {
         gpiod_line_set_value(red_led_line, 1);
     }
@@ -53,7 +63,7 @@ process (jack_nframes_t nframes, void *arg)
         gpiod_line_set_value(red_led_line, 0);
     }
 
-    if (current_max > green_led_threshold_gain || cycle < powf((current_max / green_led_threshold_gain), 1.0))
+    if (old_max > green_led_threshold_gain || cycle < powf((old_max / green_led_threshold_gain), 1.0))
     {
         gpiod_line_set_value(green_led_line, 1);
     }
@@ -62,11 +72,9 @@ process (jack_nframes_t nframes, void *arg)
         gpiod_line_set_value(green_led_line, 0);
     }
 
-    const float samplerate = (float)jack_get_sample_rate(jack_client);
+    time_since_red_led_triggered += time_passed;
 
-    time_since_red_led_triggered += (float)nframes / samplerate;
-
-    cycle += 123457.678 * (float)nframes / samplerate;
+    cycle += 123457.678 * time_passed;
     
     cycle = fmodf(cycle, 1.0);
 
@@ -96,7 +104,8 @@ int main(int ac, char *av[])
         ("gpiod-red-led-offset,r", po::value<int>(&gpiod_red_led_offset)->default_value(18), "The libgpiod line offset to use for the red indicator LED")
         ("green-led-threshold-dbfs,t", po::value<float>(&green_led_threshold_dbfs)->default_value(-18.0), "The full saturation threshold for the green LED (note: this is not using oversampling, thus the value will be underestimated)")
         ("red-led-threshold-dbfs,u", po::value<float>(&red_led_threshold_dbfs)->default_value(-6.0), "The full saturation threshold for the red LED (note: this is not using oversampling, thus the value will be underestimated)")
-        ("red-led-hysteresis-secs,y", po::value<float>(&red_led_hysteresis_secs)->default_value(0.5), "Approximate time for the red LED to go off after being triggered")
+        ("red-led-hysteresis-secs,y", po::value<float>(&red_led_hysteresis_secs)->default_value(0.5), "Approximate time for the red LED to stay on after reaching full saturarion")
+        ("falloff-time-constant-secs,z", po::value<float>(&falloff_time_constant_secs)->default_value(0.1), "The time for the exponential falloff to drop to half the peak value")
     ;
 
     po::variables_map vm;
