@@ -47,7 +47,7 @@ Allowed options:
 </pre>
 # Demo
 
-https://www.youtube.com/watch?v=dmpUFFLyMo0&feature=youtu.be
+[![IMAGE ALT TEXT](http://img.youtube.com/vi/dmpUFFLyMo0/0.jpg)](http://www.youtube.com/watch?v=dmpUFFLyMo0 "Demo")
 
 # License
 
