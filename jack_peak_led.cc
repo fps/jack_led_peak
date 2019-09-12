@@ -21,15 +21,17 @@ float red_led_threshold_gain;
 float red_led_blink_threshold_gain;
 float red_led_blink_frequency_hz;
 float red_led_hysteresis_secs;
-float falloff_time_constant_secs;
+float green_led_falloff_time_constant_secs;
+float red_led_falloff_time_constant_secs;
 
 float time_since_red_led_triggered = 0;
 float time_since_red_led_blink_triggered = 0;
 
 float blink_cycle = 0.0;
-float pwm_cycle = 0.0;
+// float pwm_cycle = 0.0;
 
-float old_max = 0.0;
+float green_old_max = 0.0;
+float red_old_max = 0.0;
 
 int
 process (jack_nframes_t nframes, void *arg)
@@ -38,8 +40,10 @@ process (jack_nframes_t nframes, void *arg)
 
     const float time_passed = (float)nframes / samplerate;
 
+    float draw = (float)rand()/(float)RAND_MAX;
+
     float current_max = 0;
-    for (int index = 0; index < jack_ports.size(); ++index)
+    for (unsigned int index = 0; index < jack_ports.size(); ++index)
     {
         jack_default_audio_sample_t *buffer;
         buffer = (jack_default_audio_sample_t*)jack_port_get_buffer(jack_ports[index], nframes);
@@ -49,16 +53,18 @@ process (jack_nframes_t nframes, void *arg)
         if (tmp > current_max) current_max = tmp;
     }
 
-    if (current_max > old_max) old_max = current_max;
+    if (current_max > green_old_max) green_old_max = current_max;
+    if (current_max > red_old_max) red_old_max = current_max;
 
-    old_max = old_max * powf(0.5, time_passed / falloff_time_constant_secs);
+    green_old_max *= powf(0.5, time_passed / green_led_falloff_time_constant_secs);
+    red_old_max *= powf(0.5, time_passed / red_led_falloff_time_constant_secs);
 
-    if (old_max > red_led_threshold_gain)
+    if (red_old_max > red_led_threshold_gain)
     {
         time_since_red_led_triggered = 0;
     }
 
-    if (old_max > red_led_blink_threshold_gain)
+    if (red_old_max > red_led_blink_threshold_gain)
     {
         time_since_red_led_blink_triggered = 0;
     }
@@ -76,7 +82,7 @@ process (jack_nframes_t nframes, void *arg)
     }
     else
     {
-        if (time_since_red_led_triggered < red_led_hysteresis_secs || pwm_cycle < powf((old_max - green_led_threshold_gain) / red_led_threshold_gain, 1.0))
+        if (time_since_red_led_triggered < red_led_hysteresis_secs || draw < (red_old_max - green_led_threshold_gain) / (red_led_threshold_gain - green_led_threshold_gain))
         {
             gpiod_line_set_value(red_led_line, 1);
         }
@@ -86,7 +92,7 @@ process (jack_nframes_t nframes, void *arg)
         }
     }
  
-    if (old_max > green_led_threshold_gain || pwm_cycle < powf((old_max / green_led_threshold_gain), 1.0))
+    if (green_old_max > green_led_threshold_gain || draw < (green_old_max / green_led_threshold_gain))
     {
         gpiod_line_set_value(green_led_line, 1);
     }
@@ -98,9 +104,10 @@ process (jack_nframes_t nframes, void *arg)
     time_since_red_led_triggered += time_passed;
     time_since_red_led_blink_triggered += time_passed;
 
+/*
     pwm_cycle += 20.0 * time_passed;
     pwm_cycle = fmodf(pwm_cycle, 1.0);
-
+*/
     blink_cycle += red_led_blink_frequency_hz * time_passed;
     blink_cycle = fmodf(blink_cycle, 1.0);
 
@@ -134,7 +141,8 @@ int main(int ac, char *av[])
         ("red-led-hysteresis-secs,y", po::value<float>(&red_led_hysteresis_secs)->default_value(1), "Approximate time for the red LED to stay on after reaching full saturarion")
         ("red-led-blink-threshold-dbfs,b", po::value<float>(&red_led_blink_threshold_dbfs)->default_value(-1.0), "The threshold at which the red LED starts to blink")
         ("red-led-blink-frequency-hz,f", po::value<float>(&red_led_blink_frequency_hz)->default_value(10), "The red LED blinking frequency (approximate)")
-        ("falloff-time-constant-secs,z", po::value<float>(&falloff_time_constant_secs)->default_value(0.1), "The time for the exponential falloff to drop to half the peak value")
+        ("green-led-falloff-time-constant-secs,z", po::value<float>(&green_led_falloff_time_constant_secs)->default_value(0.1), "The green LED's time for the exponential falloff to drop to half the peak value")
+        ("red-led-falloff-time-constant-secs,x", po::value<float>(&red_led_falloff_time_constant_secs)->default_value(0.4), "The red LED's time for the exponential falloff to drop to half the peak value")
     ;
 
     po::variables_map vm;
@@ -146,9 +154,9 @@ int main(int ac, char *av[])
         return 1;
     }
 
-    green_led_threshold_gain = powf(10.0, green_led_threshold_dbfs/10.0);
-    red_led_threshold_gain = powf(10.0, red_led_threshold_dbfs/10.0);
-    red_led_blink_threshold_gain = powf(10.0, red_led_blink_threshold_dbfs/10.0);
+    green_led_threshold_gain = powf(10.0, green_led_threshold_dbfs/20.0);
+    red_led_threshold_gain = powf(10.0, red_led_threshold_dbfs/20.0);
+    red_led_blink_threshold_gain = powf(10.0, red_led_blink_threshold_dbfs/20.0);
 
     gpiod_chip *chip;
     chip = gpiod_chip_open(gpiod_chip_device_path.c_str());
