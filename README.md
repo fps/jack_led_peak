@@ -33,10 +33,12 @@ Allowed options:
   -y [ --red-led-hysteresis-secs ] arg (=0.5)
                                         Approximate time for the red LED to 
                                         stay on after reaching full saturarion
+  -b [ --red-led-blink-threshold-dbfs ] arg (=-1)
+                                        The threshold at which the red LED 
+                                        starts to blink
+  -f [ --red-led-blink-frequency-hz ] arg (=5)
+                                        The red LED blinking frequency 
+                                        (approximate)
   -z [ --falloff-time-constant-secs ] arg (=0.100000001)
                                         The time for the exponential falloff to
                                         drop to half the peak value
-</pre>
-
-
-
