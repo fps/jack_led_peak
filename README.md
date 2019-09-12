@@ -6,7 +6,6 @@ should be usable on any linux system that has some LEDs attached via GPIO lines
 addressable by libgpiod.
 
 <pre>
-jack_peak_led -h
 Allowed options:
   -h [ --help ]                         produce help message
   -a [ --jack-client-name ] arg (=jack_peak_led)
@@ -33,19 +32,20 @@ Allowed options:
                                         red LED (note: this is not using 
                                         oversampling, thus the value will be 
                                         underestimated)
-  -y [ --red-led-hysteresis-secs ] arg (=0.5)
+  -y [ --red-led-hysteresis-secs ] arg (=1)
                                         Approximate time for the red LED to 
                                         stay on after reaching full saturarion
   -b [ --red-led-blink-threshold-dbfs ] arg (=-1)
                                         The threshold at which the red LED 
                                         starts to blink
-  -f [ --red-led-blink-frequency-hz ] arg (=5)
+  -f [ --red-led-blink-frequency-hz ] arg (=10)
                                         The red LED blinking frequency 
                                         (approximate)
   -z [ --falloff-time-constant-secs ] arg (=0.100000001)
                                         The time for the exponential falloff to
                                         drop to half the peak value
-
+</pre>
 # License
 
 GPL v2
+
