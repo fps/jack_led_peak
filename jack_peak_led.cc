@@ -18,12 +18,16 @@ gpiod_line *red_led_line;
 
 float green_led_threshold_gain;
 float red_led_threshold_gain;
+float red_led_blink_threshold_gain;
+float red_led_blink_frequency_hz;
 float red_led_hysteresis_secs;
 float falloff_time_constant_secs;
 
 float time_since_red_led_triggered = 0;
+float time_since_red_led_blink_triggered = 0;
 
-float cycle = 0.0;
+float blink_cycle = 0.0;
+float pwm_cycle = 0.0;
 
 float old_max = 0.0;
 
@@ -54,16 +58,35 @@ process (jack_nframes_t nframes, void *arg)
         time_since_red_led_triggered = 0;
     }
 
-    if (time_since_red_led_triggered < red_led_hysteresis_secs || cycle < powf((old_max - green_led_threshold_gain) / red_led_threshold_gain, 1.0))
+    if (old_max > red_led_blink_threshold_gain)
     {
-        gpiod_line_set_value(red_led_line, 1);
+        time_since_red_led_blink_triggered = 0;
+    }
+
+    if (time_since_red_led_blink_triggered < red_led_hysteresis_secs)
+    {
+        if (blink_cycle < 0.5)
+        {
+            gpiod_line_set_value(red_led_line, 1);
+        }
+        else
+        {
+            gpiod_line_set_value(red_led_line, 0);
+        }
     }
     else
     {
-        gpiod_line_set_value(red_led_line, 0);
+        if (time_since_red_led_triggered < red_led_hysteresis_secs || pwm_cycle < powf((old_max - green_led_threshold_gain) / red_led_threshold_gain, 1.0))
+        {
+            gpiod_line_set_value(red_led_line, 1);
+        }
+        else
+        {
+            gpiod_line_set_value(red_led_line, 0);
+        }
     }
-
-    if (old_max > green_led_threshold_gain || cycle < powf((old_max / green_led_threshold_gain), 1.0))
+ 
+    if (old_max > green_led_threshold_gain || pwm_cycle < powf((old_max / green_led_threshold_gain), 1.0))
     {
         gpiod_line_set_value(green_led_line, 1);
     }
@@ -73,10 +96,13 @@ process (jack_nframes_t nframes, void *arg)
     }
 
     time_since_red_led_triggered += time_passed;
+    time_since_red_led_blink_triggered += time_passed;
 
-    cycle += 123457.678 * time_passed;
-    
-    cycle = fmodf(cycle, 1.0);
+    pwm_cycle += 20.0 * time_passed;
+    pwm_cycle = fmodf(pwm_cycle, 1.0);
+
+    blink_cycle += red_led_blink_frequency_hz * time_passed;
+    blink_cycle = fmodf(blink_cycle, 1.0);
 
     return 0;      
 }
@@ -92,6 +118,7 @@ int main(int ac, char *av[])
     int gpiod_red_led_offset;
     float green_led_threshold_dbfs;
     float red_led_threshold_dbfs;
+    float red_led_blink_threshold_dbfs;
 
     po::options_description desc("Allowed options");
     desc.add_options()
@@ -104,7 +131,9 @@ int main(int ac, char *av[])
         ("gpiod-red-led-offset,r", po::value<int>(&gpiod_red_led_offset)->default_value(18), "The libgpiod line offset to use for the red indicator LED")
         ("green-led-threshold-dbfs,t", po::value<float>(&green_led_threshold_dbfs)->default_value(-18.0), "The full saturation threshold for the green LED (note: this is not using oversampling, thus the value will be underestimated)")
         ("red-led-threshold-dbfs,u", po::value<float>(&red_led_threshold_dbfs)->default_value(-6.0), "The full saturation threshold for the red LED (note: this is not using oversampling, thus the value will be underestimated)")
-        ("red-led-hysteresis-secs,y", po::value<float>(&red_led_hysteresis_secs)->default_value(0.5), "Approximate time for the red LED to stay on after reaching full saturarion")
+        ("red-led-hysteresis-secs,y", po::value<float>(&red_led_hysteresis_secs)->default_value(1), "Approximate time for the red LED to stay on after reaching full saturarion")
+        ("red-led-blink-threshold-dbfs,b", po::value<float>(&red_led_blink_threshold_dbfs)->default_value(-1.0), "The threshold at which the red LED starts to blink")
+        ("red-led-blink-frequency-hz,f", po::value<float>(&red_led_blink_frequency_hz)->default_value(10), "The red LED blinking frequency (approximate)")
         ("falloff-time-constant-secs,z", po::value<float>(&falloff_time_constant_secs)->default_value(0.1), "The time for the exponential falloff to drop to half the peak value")
     ;
 
@@ -119,6 +148,7 @@ int main(int ac, char *av[])
 
     green_led_threshold_gain = powf(10.0, green_led_threshold_dbfs/10.0);
     red_led_threshold_gain = powf(10.0, red_led_threshold_dbfs/10.0);
+    red_led_blink_threshold_gain = powf(10.0, red_led_blink_threshold_dbfs/10.0);
 
     gpiod_chip *chip;
     chip = gpiod_chip_open(gpiod_chip_device_path.c_str());
