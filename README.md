@@ -45,6 +45,10 @@ Allowed options:
                                         The time for the exponential falloff to
                                         drop to half the peak value
 </pre>
+# Demo
+
+https://www.youtube.com/watch?v=dmpUFFLyMo0&feature=youtu.be
+
 # License
 
 GPL v2
