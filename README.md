@@ -1,6 +1,9 @@
 # jack_led_peak
 
-A small jack utility (primary for the raspberry pi) to drive LEDs based on the peak values of the inputs.
+A small jack utility to drive LEDs based on the peak values of the inputs. This was 
+developed primarily for use on a raspberry pi4 (the default line offsets), but it
+should be usable on any linux system that has some LEDs attached via GPIO lines 
+addressable by libgpiod.
 
 <pre>
 jack_peak_led -h
@@ -42,3 +45,7 @@ Allowed options:
   -z [ --falloff-time-constant-secs ] arg (=0.100000001)
                                         The time for the exponential falloff to
                                         drop to half the peak value
+
+# License
+
+GPL v2
