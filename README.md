@@ -41,9 +41,13 @@ Allowed options:
   -f [ --red-led-blink-frequency-hz ] arg (=10)
                                         The red LED blinking frequency 
                                         (approximate)
-  -z [ --falloff-time-constant-secs ] arg (=0.100000001)
-                                        The time for the exponential falloff to
-                                        drop to half the peak value
+  -z [ --green-led-falloff-time-constant-secs ] arg (=0.100000001)
+                                        The green LED's time for the 
+                                        exponential falloff to drop to half the
+                                        peak value
+  -x [ --red-led-falloff-time-constant-secs ] arg (=0.400000006)
+                                        The red LED's time for the exponential 
+                                        falloff to drop to half the peak value
 </pre>
 # Demo
 
@@ -52,4 +56,5 @@ Allowed options:
 # License
 
 GPL v2
+
 
