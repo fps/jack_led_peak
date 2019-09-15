@@ -79,7 +79,7 @@ process (jack_nframes_t nframes, void *arg)
     if (red_old_max > red_led_blink_threshold_gain)
     {
         time_since_red_led_blink_triggered = 0;
-        blink_cycle = 0;
+        // blink_cycle = 0;
     }
 
 #if 0
@@ -170,7 +170,7 @@ int main(int ac, char *av[])
         ("red-led-threshold-dbfs,u", po::value<float>(&red_led_threshold_dbfs)->default_value(-6.0), "The full saturation threshold for the red LED (note: this is not using oversampling, thus the value will be underestimated)")
         ("red-led-hysteresis-secs,y", po::value<float>(&red_led_hysteresis_secs)->default_value(1), "Approximate time for the red LED to stay on after reaching full saturarion")
         ("red-led-blink-threshold-dbfs,b", po::value<float>(&red_led_blink_threshold_dbfs)->default_value(-1.0), "The threshold at which the red LED starts to blink")
-        ("red-led-blink-frequency-hz,f", po::value<float>(&red_led_blink_frequency_hz)->default_value(6), "The red LED blinking frequency (approximate)")
+        ("red-led-blink-frequency-hz,f", po::value<float>(&red_led_blink_frequency_hz)->default_value(5), "The red LED blinking frequency (approximate)")
         ("green-led-falloff-time-constant-secs,z", po::value<float>(&green_led_falloff_time_constant_secs)->default_value(0.1), "The green LED's time for the exponential falloff to drop to half the peak value")
         ("red-led-falloff-time-constant-secs,x", po::value<float>(&red_led_falloff_time_constant_secs)->default_value(0.4), "The red LED's time for the exponential falloff to drop to half the peak value")
         ("pwm-frequency_hz,p", po::value<float>(&pwm_frequency_hz)->default_value(10000), "The frequency with which to perform PWM (approximate)")
@@ -278,6 +278,7 @@ int main(int ac, char *av[])
 
         usleep(pwm_usecs);
 
+        // TODO: measure time elapsed and use it instead of the nominal value
         blink_cycle += red_led_blink_frequency_hz * (float)pwm_usecs/1000000.0;
         blink_cycle = fmodf(blink_cycle, 1.0);
     }
